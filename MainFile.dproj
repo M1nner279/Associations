@@ -1,0 +1,676 @@
+Program Associations;
+
+{$APPTYPE CONSOLE}
+{$R *.res}
+
+Uses
+    SysUtils,
+    Windows;
+
+Const
+    Range = 300;
+    Parad = '            ';
+    BigParad = '                            ';
+    WideMenuBound = '----------------------------------------------------------------------';
+
+Type
+    TMatrixCharacters = Array [0 .. 2] Of Array [0 .. 2] Of AnsiString;
+    TArray = Array Of AnsiString;
+    TArrayInt = Array Of Integer;
+    TDataMatrix = Array Of TMatrixCharacters;
+    TMatrix = Array Of TArrayInt;
+
+Var
+    ConHandle: THandle; // Дескриптор консольного окна
+    Coord: TCoord; // Для хранения/установки позиции экрана
+    MaxX, MaxY: Word; // Для хранения максимальных размеров окна
+    CCI: TConsoleCursorInfo;
+    NOAW: Cardinal; // Для хранения результатов некоторых функций
+
+    // procedures for work in console:
+Function GetConInputHandle: THandle;
+Begin
+    Result := GetStdHandle(STD_INPUT_HANDLE)
+End;
+
+Function GetConOutputHandle: THandle;
+Begin
+    Result := GetStdHandle(STD_OUTPUT_HANDLE)
+End;
+
+Procedure GoToXY(X, Y: Word);
+Begin
+    Coord.X := X;
+    Coord.Y := Y;
+    SetConsoleCursorPosition(ConHandle, Coord);
+End;
+
+Procedure EmptyConsole;
+
+Begin
+    Coord.X := 0;
+    Coord.Y := 0;
+    FillConsoleOutputCharacter(ConHandle, ' ', MaxX * MaxY, Coord, NOAW);
+    GoToXY(0, 0);
+End;
+
+Procedure ShowCursor(Show: Bool);
+Begin
+    CCI.BVisible := Show;
+    SetConsoleCursorInfo(ConHandle, CCI);
+End;
+
+Procedure Init;
+Begin
+    // Получаем дескриптор вывода (output)
+    ConHandle := GetConOutputHandle;
+    // Получаем максимальные размеры окна
+    Coord := GetLargestConsoleWindowSize(ConHandle);
+    MaxX := Coord.X;
+    MaxY := Coord.Y;
+End;
+
+// TeamProduct
+Procedure OutRoundFirst(RoundNumb: Integer);
+Begin
+    Writeln(#13#10, #13#10, Parad, WideMenuBound);
+    Writeln(Parad, ' ---                           РАУНД ', RoundNumb, '                           ---');
+    Writeln(Parad, ' ---                          ЗАГАДЫВАНИЕ                         ---');
+    Writeln(Parad, WideMenuBound);
+    Write(Parad);
+    Readln;
+End;
+
+Procedure OutRoundSecond(RoundNumb: Integer);
+Begin
+    Writeln(#13#10, #13#10, Parad, WideMenuBound);
+    Writeln(Parad, ' ---                           РАУНД ', RoundNumb, '                           ---');
+    Writeln(Parad, ' ---                          ОТГАДЫВАНИЕ                         ---');
+    Writeln(Parad, WideMenuBound);
+    Write(Parad);
+    Readln;
+End;
+
+Function ReadGamers(): TArray;
+Var
+    Size, I: Integer;
+    IsCorrect: Boolean;
+    Gamers: TArray;
+
+Begin
+    EmptyConsole();
+    Writeln(#13#10, BigParad, 'Сколько же вас играет?', #13#10);
+    Repeat        
+        Size := 0;
+        IsCorrect := True;
+        Writeln(Parad, WideMenuBound);
+        Writeln(Parad, '-Введите число игроков(от 2 до 5):                                   -');
+        Writeln(Parad, WideMenuBound);  
+        Write(Parad);                                                     
+        Try           
+            Readln(Size);
+        Except
+            Writeln(Parad, 'Неправильный ввод', #13#10, Parad,
+              'нажмите и попробуйте ещё раз');
+            Write(Parad);
+            IsCorrect := False;
+            Readln;
+        End;
+        If IsCorrect And ((Size < 2) Or (Size > 5)) Then
+        Begin
+            IsCorrect := False;
+            Writeln(Parad, 'Неправильный ввод', #13#10, Parad,
+              'нажмите и попробуйте ещё раз');
+            Write(Parad);
+            Readln;
+        End;
+    Until IsCorrect;
+    SetLength(Gamers, Size);
+    I := 0;
+    While I < Size Do
+    Begin
+        Writeln(parad, WideMenuBound);
+        Writeln(Parad, '-Введите имя ', I + 1, ' игрока:                                               -');
+        Writeln(parad, WideMenuBound);
+        Write(Parad);
+        Readln(Gamers[I]);
+        If High(Gamers[I]) < 2 Then
+        Begin
+            Writeln(Parad, 'Короткое имя', #13#10, Parad, 'Нажмите и попробуйте ещё раз');
+            Write(Parad);
+            Readln;
+        End
+        Else
+            Inc(I);
+    End;
+    ReadGamers := Gamers;
+End;
+
+Function Choice: Boolean;
+Var
+    Choi: Integer;
+    IsCorrect: Boolean;
+
+Begin
+    Repeat
+        Choi := 0;
+        IsCorrect := True;
+        Try
+            Readln(Choi);
+        Except
+            IsCorrect := False;
+            Write('            Введите 0 или 1: ');
+        End;
+        If IsCorrect And ((Choi < 0) Or (Choi > 1)) Then
+        Begin
+            IsCorrect := False;
+            Write('            Вводите 0 или 1: ');
+        End;
+    Until IsCorrect;
+    Choice := (Choi = 1)
+End;
+
+// Random In 1..Range
+Function RandomNumb: Integer;
+Var
+    Numb: Integer;
+    Hours, Mins, Secs, MilliSecs: Word;
+
+Begin
+    DecodeTime(Now, Hours, Mins, Secs, MilliSecs);
+    RandSeed := MilliSecs;
+    Numb := 1 + Random(Range);
+    RandomNumb := Numb;
+End;
+
+Function GetWordFromFile(Num: Integer): AnsiString;
+Var
+    ThisWord: AnsiString;
+    Words: TextFile;
+    Numb: Integer;
+    Cht: AnsiChar;
+
+Begin
+    Numb := 0;
+    AssignFile(Words, 'D:\Projects\OPI_Associations\words.txt');
+    Reset(Words);
+    System.SetTextCodePage(Words, 65001);
+    While Not(Numb = Num) Do
+        Try
+            Read(Words, Numb);
+        Except
+            Numb := 0;
+        End;
+    Read(Words, Cht);
+    Readln(Words, ThisWord);
+    // AnsiTrim(ThisWord);
+    Close(Words);
+    GetWordFromFile := ThisWord;
+End;
+
+Function ChoiceWord(Var UsedWords: Array Of Boolean): AnsiString;
+Var
+    I, Num: Integer;
+    Str: AnsiString;
+
+Begin
+    Num := RandomNumb();
+    If UsedWords[Num] Then
+    Begin
+        UsedWords[Num] := False;
+        Str := GetWordFromFile(Num);
+    End
+    Else
+    Begin
+        Inc(Num);
+        // check if file all used
+        Num := Num Mod Range;
+    End;
+    ChoiceWord := Str;
+End;
+
+Procedure OutScore(Names: TArray; PlayersScore: TArrayInt; PlayersScoreMain: TArrayInt);
+Var
+    NumberPlayers: Integer;
+    I: Integer;
+
+Begin
+    EmptyConsole();
+    NumberPlayers := High(Names);
+    Writeln(BigParad, 'Очки за этот Раунд: ', #13#10);
+    Writeln(Parad, WideMenuBound);
+    For I := 0 To NumberPlayers Do
+    Begin
+        Writeln(Parad , '- ', Names[I], ' --- ', PlayersScore[I]);
+        Writeln(Parad, WideMenuBound);
+    End;
+    Writeln(#13#10, BigParad, 'Общие очки на данный момент: ', #13#10);
+    Writeln(Parad, WideMenuBound);
+    For I := 0 To NumberPlayers Do
+    Begin
+        Writeln(Parad , '- ', Names[I], ' --- ', PlayersScoreMain[I]);
+        Writeln(Parad, WideMenuBound);
+    End;
+    Write(Parad);
+    Readln;
+End;
+
+Function CheckAbjective(Words: Array of AnsiString; I: Integer): Integer;
+Var
+    Error, J: Integer;
+    Last: AnsiString;
+
+Begin
+    Error := 2;
+    For J := 0 To I - 1 do
+        If Words[J] = Words[I] Then
+            Error := 1;
+    If Error = 2 Then
+    Begin
+        Last := Words[I][High(Words[I]) - 1] + Words[I][High(Words[I])];
+        If (Last = 'ой') Or (Last = 'ый') Or (Last = 'ий') Or (Last = 'ая') 
+            Or (Last = 'яя') Or (Last = 'ое') Then
+            Error := 0;
+    End;
+    CheckAbjective := Error;
+End;
+
+Function CheckVerb(Words: Array of AnsiString; I: Integer): Integer;
+Var
+    Error, J: Integer;
+    Last: AnsiString;
+
+Begin
+    Error := 2;
+    For J := 0 To I - 1 do
+        If Words[J] = Words[I] Then
+            Error := 1;
+    If Error = 2 Then
+    Begin
+        Last := Words[I][High(Words[I]) - 1] + Words[I][High(Words[I])];
+        If Last = 'ть'Then
+            Error := 0;
+    End;
+    CheckVerb := Error;
+End;
+
+Function ReadDataWords(Var YourWord: AnsiString): TMatrixcharacters;
+Var
+    Word: AnsiString;
+    WordsMatrix: TMatrixCharacters;
+    I, ErrCode: Integer;
+
+Begin
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Вводите 3 прилагательных, подходящие вашему слову ',
+      YourWord, ' :');
+    Writeln(Parad, WideMenuBound);
+    I := 0;
+    While I < 3 Do
+    Begin
+        ErrCode := 0;
+        Write(Parad);
+        Readln(WordsMatrix[0, I]);
+        ErrCode := CheckAbjective(WordsMatrix[0], I);
+        If ErrCode = 0 Then
+            Inc(I)
+        Else If ErrCode = 1 Then
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Такое слово вы уже ввели. Слово не засчитано                        -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End
+        Else
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Вы ввели не прилагательное. Слово не засчитано                      -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End;
+    End;
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Вводите 3 глагола, подходящие вашему слову ', YourWord, ' :');
+    Writeln(Parad, WideMenuBound);
+    I := 0;
+    While I < 3 Do
+    Begin
+        ErrCode := 0;
+        Write(Parad);
+        Readln(WordsMatrix[1, I]);
+        ErrCode := CheckVerb(WordsMatrix[0], I);
+        If ErrCode = 0 Then
+            Inc(I)
+        Else If ErrCode = 1 Then
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Такое слово вы уже ввели. Слово не засчитано                        -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End
+        Else
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Вы ввели не глагол. Слово не засчитано                              -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End;
+    End;
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Вводите 3 существительных, подходящие вашему слову ',
+      YourWord, ' :');
+    Writeln(Parad, WideMenuBound);
+    I := 0;
+    While I < 3 Do
+    Begin
+        ErrCode := 0;
+        Write(Parad);
+        Readln(WordsMatrix[2, I]);
+        // errcode := Check(Words[2, I]);
+        If ErrCode = 0 Then
+            Inc(I)
+        Else If ErrCode = 1 Then
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Такое слово вы уже ввели. Слово не засчитано                        -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End
+        Else
+        Begin
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Вы ввели не существительное. Слово не засчитано                     -');
+            Writeln(Parad, '-Попробуйте ещё раз                                                  -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+        End;
+    End;
+    ReadDataWords := WordsMAtrix;
+    Write(Parad);
+    Readln;
+End;
+
+Procedure GettingWords(Var DataRound: TDataMatrix; Gamers: TArray;
+  Var WordsOfRound: TArray; Var UsedWords: Array Of Boolean);
+Var
+    I, N: Integer;
+
+Begin
+    For I := 0 To High(Gamers) Do
+    Begin
+        EmptyConsole();
+        Write(#13#10, #13#10, #13#10);
+        Writeln(Parad, WideMenuBound);
+        Writeln(Parad, '-Сейчас очередь ввода игрока ', Gamers[I], #13#10, Parad,
+          '-Нажмите чтобы узнать своё слово');
+        Writeln(Parad, WideMenuBound);
+        Write(Parad);
+        Readln;
+        EmptyConsole();
+        N := 3;
+        While N > -1 Do
+        Begin
+            EmptyConsole();
+            WordsOfRound[I] := ChoiceWord(UsedWords);
+            Write(#13#10, #13#10, #13#10);
+            Writeln(Parad, WideMenuBound, #13#10, Parad, '-');
+            Writeln(Parad, '-Ваше слово: ', WordsOfRound[I]);
+            Writeln(Parad, '-', #13#10, Parad, WideMenuBound);
+            If N = 1 Then
+            Begin
+                Writeln(Parad, WideMenuBound);
+                Writeln(Parad, '- Введите 0 если вы хотите заменить слово(осталось ',
+                  N, ' раз)            -');
+            End
+            Else
+            Begin
+                Writeln(Parad, WideMenuBound);
+                Writeln(Parad, '- Введите 0 если вы хотите заменить слово(осталось ',
+                  N, ' раза)           -');
+            End;
+            Writeln(Parad, '- Введите 1 чтобы ввести прилагательные, глаголы и ассоциации к слову-');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+            If Choice() Then
+                N := -1
+            Else If N = 0 Then
+            Begin
+                EmptyConsole();
+                Write(#13#10, #13#10);
+                Writeln(Parad, WideMenuBound);
+                Writeln(Parad, '-Вы больше не можете менять слово');
+                Writeln(Parad, '-Ваше слово: ', WordsOfRound[I]);
+                Writeln(Parad, '-Нажмите чтобы продолжить');
+                Writeln(Parad, WideMenuBound);
+                Write(Parad);
+                Readln;
+                Dec(N);
+            End
+            Else
+                Dec(N);
+        End;
+        DataRound[I] := ReadDataWords(WordsOfRound[I]);
+    End;
+End;
+
+Function PlayGame(Const Players: TArray; Const Words: TDataMatrix;
+  Const Codes: TArray): TArrayInt;
+
+Var
+    Scores: TArrayInt;
+    CurrentRound: Integer;
+    CurrentPlayer: Integer;
+    CurrentWordIndex: Integer;
+    GuessedCorrectly: Boolean;
+    Guess: AnsiString;
+    I, Count, Num, Ordin: Integer;
+
+Begin
+    Count := 0;
+    Ordin := RandomNumb mod High(Players) + 1;
+    SetLength(Scores, Length(Players));
+    For CurrentPlayer := Low(Scores) To High(Scores) Do
+        Scores[CurrentPlayer] := 0;
+    For CurrentPlayer := Low(Players) To High(Players) Do
+    Begin
+        EmptyConsole();
+        Write(#13#10, #13#10, #13#10);
+        Writeln(Parad, WideMenuBound);
+        Writeln(Parad, '-Ход игрока ', Players[CurrentPlayer], #13#10, Parad,
+          '-Нажмите чтобы продолжить');
+        Writeln(Parad, WideMenuBound);
+        Write(Parad);
+        Readln;
+        CurrentWordIndex := (CurrentPlayer + Ordin) Mod Length(Players);
+        Num := 0;
+        Count := 0;
+        Repeat
+            case Num of
+                0: 
+                Begin
+                    Writeln(Parad, WideMenuBound);
+                    Writeln(Parad, '- При угадывании всегда пишите слова с БОЛЬШОЙ буквы                 -');
+                    Writeln(Parad, '- Используйте е вместо ё и возможно использование английских букв    -');
+                    Writeln(Parad, '- Первый этап - прилагательные. Вот три подсказки, попробуйте угадать-');
+                End;
+                1: 
+                Begin
+                    Writeln(Parad, WideMenuBound);
+                    Writeln(Parad, '- Вы не угадали, переходим к следующему этапу                        -');
+                    Writeln(Parad, '- Второй этап - глаголы. Вот три подсказки, попробуйте угадать       -');
+                End;
+                2:
+                Begin
+                    Writeln(Parad, WideMenuBound);
+                    Writeln(Parad, '- Вы не угадали, переходим к следующему этапу                        -');
+                    Writeln(Parad, '- Третий этап - существительные.Вот три подсказки, попробуйте угадать-');
+                End;
+            end;
+            For I := 0 To 2 Do
+                Writeln(Parad, '- ', Words[CurrentWordIndex][Num][I]);
+            Writeln(Parad, WideMenuBound);
+            Write(#13#10, #13#10);
+            Writeln(Parad, WideMenuBound);    
+            Writeln(Parad, '-  Введите ваше предполагаемое слово:                                -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+            Readln(Guess);
+            GuessedCorrectly := Guess = Codes[CurrentWordIndex];
+            Inc(Num);
+            Inc(Count);
+        Until GuessedCorrectly Or (Num > 2);
+        If GuessedCorrectly Then
+        Begin
+            Case Count Of
+                1:
+                    Scores[CurrentPlayer] := Scores[CurrentPlayer] + 3;
+                2:
+                    Scores[CurrentPlayer] := Scores[CurrentPlayer] + 2;
+                3:
+                Begin
+                    Scores[CurrentPlayer] := Scores[CurrentPlayer] + 1;
+                    Scores[CurrentWordIndex] := Scores[CurrentWordIndex] + 1;
+                End;
+            End;
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Вы угадали слово! И получили ', 4 - Count, ' очка(о).                              -');
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+            Readln;
+        End
+        Else
+        Begin
+            Scores[CurrentWordIndex] := Scores[CurrentWordIndex] - 1;
+            Writeln(Parad, WideMenuBound);
+            Writeln(Parad, '-Слово не угадано! Очки загадывающего уменьшены на 1');
+            Writeln(Parad, '-Загаданное слово: ', Codes[CurrentWordIndex]);
+            Writeln(Parad, WideMenuBound);
+            Write(Parad);
+            Readln;
+        End;
+    End;
+    PlayGame := Scores;
+End;
+
+Function CountmaxInRound(Res: TarrayInt; Var Ind: Integer): Integer;
+VAr
+    I, Max: Integer;
+
+Begin
+    Ind := 0;
+    Max := Res[0];
+    For I := 1 To High(Res) Do
+        If Max < Res[I] Then
+        Begin
+            Max := Res[I];
+            Ind := I;
+        End;
+    CountMaxInRound := Max;
+End;
+
+Procedure OutputEndTable(GreatResults: TMatrix; Names: TArray);
+Var
+    I, J: Integer;
+
+Begin
+    Write(#13#10, #13#10);
+    Writeln(BigParad, 'Конечные результаты: ');
+    Writeln(#13#10, Parad, WideMenuBound);
+    For J := 0 To High(Names) Do
+        Writeln(Parad, '- ', Names[J], ' --- ', GreatResults[0, J]);
+    Writeln(Parad, WideMenuBound);
+    Write(#13#10, #13#10);
+    Writeln(BigParad, 'Результаты игроков по раундам:', #13#10);
+    Writeln(Parad, WideMenuBound);
+    For I := 1 To High(GreatResults) Do
+    Begin
+        Writeln(Parad, '- РАУНД ', I, ' - ', Names[0], ' --- ', GreatResults[I, 0]);
+        For J := 1 To High(Names) Do
+            Writeln(Parad, '-         - ', Names[J], ' --- ', GreatResults[I, J]);
+        Writeln(Parad, WideMenuBound);
+    End;
+End;
+
+Procedure Main;
+
+Var
+    Words, Nouns: TextFile;
+    Gamers, WordsOfRound: TArray;
+    DataRound: TDataMatrix;
+    MaxInRound, IndexWin: Integer;
+    GreatResults: TMatrix;
+    UsedWords: Array [1 .. Range] Of Boolean;
+
+Begin
+    IndexWin := 0;
+    Init();
+    For MaxInRound := 1 To Range Do
+        UsedWords[MaxInRound] := True;
+    // D:\Projects\OPI_Associations\words.txt
+    Gamers := ReadGamers();
+    SetLength(DataRound, Length(Gamers));
+    SetLength(WordsOfRound, Length(Gamers));
+    SetLength(GreatResults, 1, Length(Gamers)); // have to fills 0
+    Repeat
+        EmptyConsole();
+        OutRoundFirst(Length(GreatResults));
+        SetLength(GreatResults, Length(GreatResults) + 1);
+        GettingWords(DataRound, Gamers, WordsOfRound, UsedWords);
+        EmptyConsole();
+        OutRoundSecond(Length(GreatResults));
+        GreatResults[High(GreatResults)] := PlayGame(Gamers, DataRound,
+          WordsOfRound);
+        For MaxInRound := 0 To High(Gamers) Do
+            Inc(GreatResults[0, MaxInRound], GreatResults[High(GreatResults), MaxInRound]);
+
+        OutScore(Gamers, GreatResults[High(Greatresults)], GreatResults[0]); // out round Results
+        MaxInRound := CountmaxInRound(Greatresults[0], IndexWin);
+    Until MaxInRound > 14;
+    EmptyConsole();
+    Writeln(#13#10, Parad, WideMenuBound);
+    Writeln(Parad, '- В этой игре победил игрок ', Gamers[IndexWin], ' со счётом в ', MaxInRound, ' очков!!!');
+    Writeln(Parad, WideMenuBound);
+    OutputEndTable(GreatResults, Gamers);
+    // Outputting All Results of game
+    Write(Parad);
+    Readln;
+End;
+
+Procedure OutputMenu();
+Begin
+    Writeln(BigParad,'Приветствуем Вас в игре Ассоциации', #13#10, #13#13);
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-В игре участвует 2, 3, 4 или 5 игроков                              -');
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Игра длится пока кто-либо не наберёт 15 очков                       -');
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-В каждом раунде сначала каждому выдаётся по слову,                  -');
+    Writeln(Parad, '-а каждый игрок придумывает ассоциации к своему слову                -');
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Затем по введённым ассоциациям другой игрок должен угадать слово    -');
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Чем меньше вам понадобится ассоциаций для того чтобы угадать слово, -');
+    Writeln(Parad, '-тем больше баллов вы получите                                       -');
+    Writeln(Parad, WideMenuBound);
+    Writeln(Parad, '-Введите 1 чтобы играть                                              -');  
+    Writeln(Parad, '-Введите 0 чтобы выйти                                               -');
+    Writeln(Parad, WideMenuBound);
+    Write  (Parad);
+End;
+
+Begin
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+    OutputMenu();
+    While Choice() Do
+    Begin
+        Main;
+        EmptyConsole;
+        OutputMenu();
+    End;
+End.
